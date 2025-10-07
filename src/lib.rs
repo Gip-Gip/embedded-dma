@@ -235,3 +235,179 @@ mod tests {
         assert_eq!(size_local, SIZE);
     }
 }
+
+pub struct SliceWrapperPointer<T> {
+    pointer: *const T,
+    length: usize,
+}
+
+unsafe impl<T> ReadBuffer for SliceWrapperPointer<T> {
+    type Word = T;
+    unsafe fn read_buffer(&self) -> (*const Self::Word, usize) {
+        (self.pointer, self.length)
+    }
+}
+
+#[derive(Debug)]
+pub struct SliceWrapper<'a, T> {
+    inner: &'a [T],
+    pointer_alive: bool,
+}
+
+impl<'a, T> SliceWrapper<'a, T> {
+    /// Wrap a slice to ensure the DMA transfer is complete by the time this
+    /// reference is dropped.
+    ///
+    /// # Safety
+    /// This type would cause undefined behavior and likely a system crash/worse
+    /// if `std::mem::forget()` is used on this type. Since `forget()` is not
+    /// an unsafe function, it is best this function is just to prevent accidental
+    /// memory corruption.
+    ///
+    /// It is also imperitive that the DMA system you're using returns the pointer
+    /// *only after a DMA transfer is complete*. If you're unsure check the docs
+    /// and if nothing is mentioned in the docs please clarify it with a project
+    /// maintainer.
+    ///
+    /// If you do not use `forget()` and you know your HAL follows the above
+    /// rules,  this should be perfectly safe to use.
+    ///
+    /// # Usage
+    ///
+    /// Here is an example using rp2040-hal:
+    ///
+    /// ```no_run
+    /// let mut buffer = [0u8; 256];
+    /// let mut wrapper = SliceWrapper::new(&mut buffer);
+    /// let pointer = wrapper.get_pointer();
+    /// let transfer = dma::single_buffer::Config::new(dma, pointer, uart_tx).start();
+    /// let (dma, pointer, uart_tx) = transfer.wait();
+    /// wrapper.feed_pointer(pointer);
+    /// ```
+
+    pub unsafe fn new(inner: &'a [T]) -> Self {
+        Self {
+            inner,
+            pointer_alive: false,
+        }
+    }
+
+    pub fn get_pointer(&mut self) -> SliceWrapperPointer<T> {
+        if self.pointer_alive {
+            panic!("SliceWrapperPointer already referenced in scope");
+        }
+        self.pointer_alive = true;
+
+        SliceWrapperPointer {
+            pointer: self.inner.as_ptr(),
+            length: self.inner.len(),
+        }
+    }
+
+    pub fn feed_pointer(&mut self, pointer: SliceWrapperPointer<T>) {
+        if pointer.pointer != self.inner.as_ptr() {
+            panic!("Attempted to feed SliceWrapper an invalid pointer");
+        }
+
+        self.pointer_alive = false;
+    }
+}
+
+impl<'a, T> Drop for SliceWrapper<'a, T> {
+    fn drop(&mut self) {
+        if self.pointer_alive {
+            panic!("SliceWrapper has not been fed it's pointer");
+        }
+    }
+}
+
+pub struct SliceWrapperPointerMut<T> {
+    pointer: *mut T,
+    length: usize,
+}
+
+unsafe impl<T> ReadBuffer for SliceWrapperPointerMut<T> {
+    type Word = T;
+    unsafe fn read_buffer(&self) -> (*const Self::Word, usize) {
+        (self.pointer, self.length)
+    }
+}
+
+unsafe impl<T> WriteBuffer for SliceWrapperPointerMut<T> {
+    type Word = T;
+    unsafe fn write_buffer(&mut self) -> (*mut Self::Word, usize) {
+        (self.pointer, self.length)
+    }
+}
+
+#[derive(Debug)]
+pub struct SliceWrapperMut<'a, T> {
+    inner: &'a mut [T],
+    pointer_alive: bool,
+}
+
+impl<'a, T> SliceWrapperMut<'a, T> {
+    /// Wrap a slice to ensure the DMA transfer is complete by the time this
+    /// reference is dropped.
+    ///
+    /// # Safety
+    /// This type would cause undefined behavior and likely a system crash/worse
+    /// if `std::mem::forget()` is used on this type. Since `forget()` is not
+    /// an unsafe function, it is best this function is just to prevent accidental
+    /// memory corruption.
+    ///
+    /// It is also imperitive that the DMA system you're using returns the pointer
+    /// *only after a DMA transfer is complete*. If you're unsure check the docs
+    /// and if nothing is mentioned in the docs please clarify it with a project
+    /// maintainer.
+    ///
+    /// If you do not use `forget()` and you know your HAL follows the above
+    /// rules,  this should be perfectly safe to use.
+    ///
+    /// # Usage
+    ///
+    /// Here is an example using rp2040-hal:
+    ///
+    /// ```no_run
+    /// let mut buffer = [0u8; 256];
+    /// let mut wrapper = SliceWrapperMut::new(&mut buffer);
+    /// let pointer = wrapper.get_pointer();
+    /// let transfer = dma::single_buffer::Config::new(dma, pointer, uart_tx).start();
+    /// let (dma, pointer, uart_tx) = transfer.wait();
+    /// wrapper.feed_pointer(pointer);
+    /// ```
+    pub fn new(inner: &'a mut [T]) -> Self {
+        Self {
+            inner,
+            pointer_alive: false,
+        }
+    }
+
+    pub fn get_pointer(&mut self) -> SliceWrapperPointerMut<T> {
+        if self.pointer_alive {
+            panic!("SliceWrapperPointer already referenced in scope");
+        }
+        self.pointer_alive = true;
+
+        SliceWrapperPointerMut {
+            pointer: self.inner.as_mut_ptr(),
+            length: self.inner.len(),
+        }
+    }
+
+    pub fn feed_pointer(&mut self, pointer: SliceWrapperPointerMut<T>) {
+        if pointer.pointer != self.inner.as_mut_ptr() {
+            panic!("Attempted to feed SliceWrapper an invalid pointer");
+        }
+
+        self.pointer_alive = false;
+    }
+}
+
+impl<'a, T> Drop for SliceWrapperMut<'a, T> {
+    fn drop(&mut self) {
+        if self.pointer_alive {
+            panic!("SliceWrapper has not been fed it's pointer");
+        }
+    }
+}
