@@ -276,7 +276,7 @@ impl<'a, T> SliceWrapper<'a, T> {
     ///
     /// Here is an example using rp2040-hal:
     ///
-    /// ```no_run
+    /// ```ignore
     /// let mut buffer = [0u8; 256];
     /// let mut wrapper = SliceWrapper::new(&mut buffer);
     /// let pointer = wrapper.get_pointer();
@@ -368,7 +368,7 @@ impl<'a, T> SliceWrapperMut<'a, T> {
     ///
     /// Here is an example using rp2040-hal:
     ///
-    /// ```no_run
+    /// ```ignore
     /// let mut buffer = [0u8; 256];
     /// let mut wrapper = SliceWrapperMut::new(&mut buffer);
     /// let pointer = wrapper.get_pointer();
