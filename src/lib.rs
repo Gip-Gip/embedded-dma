@@ -278,7 +278,7 @@ impl<'a, T> SliceWrapper<'a, T> {
     ///
     /// ```ignore
     /// let mut buffer = [0u8; 256];
-    /// let mut wrapper = SliceWrapper::new(&mut buffer);
+    /// let mut wrapper = unsafe { SliceWrapper::new(&mut buffer) };
     /// let pointer = wrapper.get_pointer();
     /// let transfer = dma::single_buffer::Config::new(dma, pointer, uart_tx).start();
     /// let (dma, pointer, uart_tx) = transfer.wait();
@@ -370,7 +370,7 @@ impl<'a, T> SliceWrapperMut<'a, T> {
     ///
     /// ```ignore
     /// let mut buffer = [0u8; 256];
-    /// let mut wrapper = SliceWrapperMut::new(&mut buffer);
+    /// let mut wrapper = unsafe { SliceWrapperMut::new(&mut buffer) };
     /// let pointer = wrapper.get_pointer();
     /// let transfer = dma::single_buffer::Config::new(dma, pointer, uart_tx).start();
     /// let (dma, pointer, uart_tx) = transfer.wait();
